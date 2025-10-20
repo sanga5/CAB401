@@ -125,12 +125,23 @@ namespace DigitalMusicAnalysis
                 }
             }
 
-            // Create a message box or console output
-            System.Diagnostics.Debug.WriteLine(report);
-            Console.WriteLine(report);
-
-            // Also show in a simple message box (can be commented out if not desired)
-            // MessageBox.Show(report, "Performance Report", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Save to file with timestamp
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"PerformanceReport_{timestamp}.txt";
+                string filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
+                
+                File.WriteAllText(filePath, report);
+                Console.WriteLine($"Performance report saved to: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save performance report: {ex.Message}");
+                // Fallback to console/debug output
+                System.Diagnostics.Debug.WriteLine(report);
+                Console.WriteLine(report);
+            }
         }
 
         // Loads time-freq image for tab 1
