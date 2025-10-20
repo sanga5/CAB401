@@ -37,16 +37,54 @@ namespace DigitalMusicAnalysis
         public MainWindow()
         {
             InitializeComponent();
+            totalTimer.Start();  // Start overall timing
+
             filename = openFile("Select Audio (wav) file");
             string xmlfile = openFile("Select Score (xml) file");
             Thread check = new Thread(new ThreadStart(updateSlider));
+
+            // Time loadWave
+            var loadWaveTimer = Stopwatch.StartNew();
             loadWave(filename);
+            loadWaveTimer.Stop();
+            processTimings["LoadWave"] = loadWaveTimer.Elapsed;
+
+            // Time freqDomain
+            var freqDomainTimer = Stopwatch.StartNew();
             freqDomain();
+            freqDomainTimer.Stop();
+            processTimings["FreqDomain"] = freqDomainTimer.Elapsed;
+
+            // Time readXML
+            var readXMLTimer = Stopwatch.StartNew();
             sheetmusic = readXML(xmlfile);
+            readXMLTimer.Stop();
+            processTimings["ReadXML"] = readXMLTimer.Elapsed;
+
+            // Time onsetDetection
+            var onsetDetectionTimer = Stopwatch.StartNew();
             onsetDetection();
+            onsetDetectionTimer.Stop();
+            processTimings["OnsetDetection"] = onsetDetectionTimer.Elapsed;
+
+            // Time loadImage
+            var loadImageTimer = Stopwatch.StartNew();
             loadImage();
+            loadImageTimer.Stop();
+            processTimings["LoadImage"] = loadImageTimer.Elapsed;
+
+            // Time loadHistogram
+            var loadHistogramTimer = Stopwatch.StartNew();
             loadHistogram();
+            loadHistogramTimer.Stop();
+            processTimings["LoadHistogram"] = loadHistogramTimer.Elapsed;
+
+            // Time playBack
+            var playBackTimer = Stopwatch.StartNew();
             playBack();
+            playBackTimer.Stop();
+            processTimings["PlayBack"] = playBackTimer.Elapsed;
+
             check.Start();
 
             button1.Click += zoomIN;
@@ -54,6 +92,11 @@ namespace DigitalMusicAnalysis
 
             slider1.ValueChanged += updateHistogram;
             playback.PlaybackStopped += closeMusic;
+
+            // Stop overall timer and show report
+            totalTimer.Stop();
+            processTimings["Total"] = totalTimer.Elapsed;
+            ShowTimingReport();
         }
 
         private void ShowTimingReport()
@@ -338,6 +381,7 @@ namespace DigitalMusicAnalysis
             });
             hfcTimer.Stop();
             Console.WriteLine($"HFC computation completed in {hfcTimer.ElapsedMilliseconds} ms");
+            processTimings["HFC Computation"] = hfcTimer.Elapsed;
 
             var normTimer = Stopwatch.StartNew();
             float maxi = HFC.Max();
@@ -348,6 +392,7 @@ namespace DigitalMusicAnalysis
             }
             normTimer.Stop();
             Console.WriteLine($"HFC normalization completed in {normTimer.ElapsedMilliseconds} ms");
+            processTimings["HFC Normalization"] = normTimer.Elapsed;
 
             for (int jj = 0; jj < stftRep.timeFreqData[0].Length; jj++)
             {
@@ -643,7 +688,8 @@ namespace DigitalMusicAnalysis
                 noteStaff.Children.Insert(ii, timeRect[ii]);
             }
 
-
+            onsetTimer.Stop();
+            processTimings["OnsetDetection Internal"] = onsetTimer.Elapsed;
         }
 
         private void DisplayStats(object sender, System.Windows.Input.MouseEventArgs e)
