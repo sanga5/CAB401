@@ -1,0 +1,27 @@
+Performance Timing Report:
+========================
+
+LoadWave: 10.59 ms
+FreqDomain: 372.58 ms
+ReadXML: 1.78 ms
+HFC Computation: 4.03 ms
+HFC Normalization: 0.05 ms
+OnsetDetection Internal: 1035.36 ms
+OnsetDetection: 1037.03 ms
+LoadImage: 3.70 ms
+LoadHistogram: 1.95 ms
+PlayBack: 76.26 ms
+Total: 3956.29 ms
+
+Relative Performance:
+====================
+LoadWave: 0.3%
+FreqDomain: 9.4%
+ReadXML: 0.0%
+HFC Computation: 0.1%
+HFC Normalization: 0.0%
+OnsetDetection Internal: 26.2%
+OnsetDetection: 26.2%
+LoadImage: 0.1%
+LoadHistogram: 0.0%
+PlayBack: 1.9%
