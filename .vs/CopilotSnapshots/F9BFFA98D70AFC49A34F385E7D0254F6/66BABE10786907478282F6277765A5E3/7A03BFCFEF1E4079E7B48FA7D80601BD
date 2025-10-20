@@ -1,0 +1,9 @@
+﻿	<ItemGroup>
+		<PackageReference Include="NAudio" Version="1.10.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="music\**" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+</Project>

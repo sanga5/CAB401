@@ -1,0 +1,3 @@
+﻿            // Use relative paths for automated profiling and portability
+            filename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "music", "Jupiter.wav");
+            string xmlfile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "music", "Jupiter.xml");

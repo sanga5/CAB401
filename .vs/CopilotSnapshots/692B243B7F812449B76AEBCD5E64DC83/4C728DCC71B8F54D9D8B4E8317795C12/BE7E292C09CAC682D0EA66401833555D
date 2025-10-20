@@ -1,0 +1,46 @@
+﻿public MainWindow()
+        {
+            totalTimer.Start();
+            var initTimer = Stopwatch.StartNew();
+            
+            InitializeComponent();
+            
+            initTimer.Stop();
+            processTimings["Initialization"] = initTimer.Elapsed;
+            
+            // Hardcoded file paths for development (fixed single backslash)
+            // filename = @"Y:\Documents\DigitalMusicAnalysis(1)\music\Jupiter.wav";
+            // string xmlfile = @"Y:\Documents\DigitalMusicAnalysis(1)\music\Jupiter.xml";
+
+            // Commented out: File selection logic
+            filename = openFile("Select Audio (wav) file");
+            if (string.IsNullOrEmpty(filename))
+            {
+                MessageBox.Show("No audio file selected. Application will start in demo mode.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                totalTimer.Stop();
+                processTimings["Total"] = totalTimer.Elapsed;
+                ShowTimingReport();
+                return;
+            }
+            string? xmlfile = openFile("Select Score (xml) file");
+            if (string.IsNullOrEmpty(xmlfile))
+            {
+                MessageBox.Show("No XML file selected. Music notation features will be disabled.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                var xmlTimer = Stopwatch.StartNew();
+                try
+                {
+                    sheetmusic = readXML(xmlfile);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to load XML file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                xmlTimer.Stop();
+                processTimings["XML Loading"] = xmlTimer.Elapsed;
+            }
+
+            // ...existing code...
+        }
