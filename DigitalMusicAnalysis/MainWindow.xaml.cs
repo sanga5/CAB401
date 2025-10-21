@@ -465,7 +465,7 @@ namespace DigitalMusicAnalysis
                     }
                 }
 
-                Complex[] localY = fft(localCompX, nearest);
+                Complex[] localY = fft(localCompX, localTwiddles);
                 double[] localAbsY = new double[nearest];
 
                 double maximum = 0;
@@ -805,7 +805,7 @@ namespace DigitalMusicAnalysis
 
         // FFT function for Pitch Detection
 
-        private Complex[] fft(Complex[] x, int L)
+        private Complex[] fft(Complex[] x, Complex[] twiddles)
         {
             int ii = 0;
             int kk = 0;
@@ -838,12 +838,12 @@ namespace DigitalMusicAnalysis
                     }
                 }
 
-                E = fft(even, L);
-                O = fft(odd, L);
+                E = fft(even, twiddles);
+                O = fft(odd, twiddles);
 
                 for (kk = 0; kk < N; kk++)
                 {
-                    Y[kk] = E[(kk % (N / 2))] + O[(kk % (N / 2))] * twiddles[kk * (L / N)];
+                    Y[kk] = E[(kk % (N / 2))] + O[(kk % (N / 2))] * twiddles[kk * (twiddles.Length / N)];
                 }
             }
 
