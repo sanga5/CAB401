@@ -350,14 +350,11 @@ namespace DigitalMusicAnalysis
             float[] HFC;
             int starts = 0;
             int stops = 0;
-            Complex[] Y;
-            double[] absY;
             List<int> lengths;
             List<int> noteStarts;
             List<int> noteStops;
             List<double> pitches;
 
-            int ll;
             double pi = 3.14159265;
             Complex i = Complex.ImaginaryOne;
 
@@ -441,61 +438,61 @@ namespace DigitalMusicAnalysis
                 lengths.Add(noteStops[ii] - noteStarts[ii]);
             }
 
-            for (int mm = 0; mm < lengths.Count; mm++)
+            // PARALLEL PITCH ESTIMATION - each note processed independently
+            var pitchResults = new double[lengths.Count];
+            
+            Parallel.For(0, lengths.Count, mm =>
             {
+                // Thread-local variables to avoid shared state
                 int nearest = (int)Math.Pow(2, Math.Ceiling(Math.Log(lengths[mm], 2)));
-                twiddles = new Complex[nearest];
-                for (ll = 0; ll < nearest; ll++)
+                Complex[] localTwiddles = new Complex[nearest];
+                for (int localLl = 0; localLl < nearest; localLl++)
                 {
-                    double a = 2 * pi * ll / (double)nearest;
-                    twiddles[ll] = Complex.Pow(Complex.Exp(-i), (float)a);
+                    double a = 2 * pi * localLl / (double)nearest;
+                    localTwiddles[localLl] = Complex.Pow(Complex.Exp(-i), (float)a);
                 }
 
-                compX = new Complex[nearest];
+                Complex[] localCompX = new Complex[nearest];
                 for (int kk = 0; kk < nearest; kk++)
                 {
                     if (kk < lengths[mm] && (noteStarts[mm] + kk) < waveIn.wave.Length)
                     {
-                        compX[kk] = waveIn.wave[noteStarts[mm] + kk];
+                        localCompX[kk] = waveIn.wave[noteStarts[mm] + kk];
                     }
                     else
                     {
-                        compX[kk] = Complex.Zero;
+                        localCompX[kk] = Complex.Zero;
                     }
                 }
 
-                Y = new Complex[nearest];
-
-                Y = fft(compX, nearest);
-
-                absY = new double[nearest];
+                Complex[] localY = fft(localCompX, nearest);
+                double[] localAbsY = new double[nearest];
 
                 double maximum = 0;
                 int maxInd = 0;
 
-                for (int jj = 0; jj < Y.Length; jj++)
+                for (int jj = 0; jj < localY.Length; jj++)
                 {
-                    absY[jj] = Y[jj].Magnitude;
-                    if (absY[jj] > maximum)
+                    localAbsY[jj] = localY[jj].Magnitude;
+                    if (localAbsY[jj] > maximum)
                     {
-                        maximum = absY[jj];
+                        maximum = localAbsY[jj];
                         maxInd = jj;
                     }
                 }
 
                 for (int div = 6; div > 1; div--)
                 {
-
                     if (maxInd > nearest / 2)
                     {
-                        if (absY[(int)Math.Floor((double)(nearest - maxInd) / div)] / absY[(maxInd)] > 0.10)
+                        if (localAbsY[(int)Math.Floor((double)(nearest - maxInd) / div)] / localAbsY[maxInd] > 0.10)
                         {
                             maxInd = (nearest - maxInd) / div;
                         }
                     }
                     else
                     {
-                        if (absY[(int)Math.Floor((double)maxInd / div)] / absY[(maxInd)] > 0.10)
+                        if (localAbsY[(int)Math.Floor((double)maxInd / div)] / localAbsY[maxInd] > 0.10)
                         {
                             maxInd = maxInd / div;
                         }
@@ -504,14 +501,18 @@ namespace DigitalMusicAnalysis
 
                 if (maxInd > nearest / 2)
                 {
-                    pitches.Add((nearest - maxInd) * waveIn.SampleRate / nearest);
+                    pitchResults[mm] = (nearest - maxInd) * waveIn.SampleRate / nearest;
                 }
                 else
                 {
-                    pitches.Add(maxInd * waveIn.SampleRate / nearest);
+                    pitchResults[mm] = maxInd * waveIn.SampleRate / nearest;
                 }
+            });
 
-
+            // Copy results to pitches list in correct order
+            for (int mm = 0; mm < lengths.Count; mm++)
+            {
+                pitches.Add(pitchResults[mm]);
             }
 
             musicNote[] noteArray;
