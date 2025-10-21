@@ -75,9 +75,6 @@ namespace DigitalMusicAnalysis
                 Y[ll] = new float[2 * (int)Math.Floor((double)N / (double)wSamp)];
             }
             
-            Complex[] temp = new Complex[wSamp];
-            Complex[] tempFFT = new Complex[wSamp];
-
             int windowCount = (int)(2 * Math.Floor((double)N / (double)wSamp) - 1);
             Console.WriteLine($"Processing {windowCount} overlapping windows");
             
@@ -86,44 +83,44 @@ namespace DigitalMusicAnalysis
             //ConcurrentBag for thread safety
             var localMaxima = new System.Collections.Concurrent.ConcurrentBag<float>();
             
-            Parallel.For(0, windowCount, ii =>
-            {
-                // Thread-local variables
-                Complex[] localTemp = new Complex[wSamp];
-                Complex[] localTempFFT = new Complex[wSamp];
-                float threadLocalMax = 0.0f;
-                
-                if (ii % 100 == 0 && ii > 0)
+            Parallel.For(0, windowCount, 
+                () => new Complex[wSamp],  // Thread-local buffer initialization
+                (ii, state, localBuffer) =>
                 {
-                    Console.WriteLine($"Processed {ii}/{windowCount} windows ({(ii * 100.0 / windowCount):F1}%)");
-                }
-
-                // Extract window
-                for (int localJj = 0; localJj < wSamp; localJj++)
-                {
-                    localTemp[localJj] = x[ii * (wSamp / 2) + localJj];
-                }
-
-                // Clone array for FFT since Fourier.Forward modifies in place
-                Complex[] fftInput = (Complex[])localTemp.Clone();
-                Fourier.Forward(fftInput, FourierOptions.NoScaling);
-                localTempFFT = fftInput;
-
-                // Store results
-                for (int localKk = 0; localKk < wSamp / 2; localKk++)
-                {
-                    float magnitude = (float)Complex.Abs(localTempFFT[localKk]);                        
-                    Y[localKk][ii] = magnitude;
-
-                    if (magnitude > threadLocalMax)
+                    if (ii % 100 == 0 && ii > 0)
                     {
-                        threadLocalMax = magnitude;
+                        Console.WriteLine($"Processed {ii}/{windowCount} windows ({(ii * 100.0 / windowCount):F1}%)");
                     }
-                }
-                
-                // Store thread-local max
-                localMaxima.Add(threadLocalMax);
-            });
+
+                    // Copy window data to thread-local buffer
+                    for (int j = 0; j < wSamp; j++)
+                    {
+                        localBuffer[j] = x[ii * (wSamp / 2) + j];
+                    }
+
+                    // Perform FFT in place on the buffer
+                    Fourier.Forward(localBuffer, FourierOptions.NoScaling);
+
+                    float threadLocalMax = 0.0f;
+                    // Store results
+                    for (int localKk = 0; localKk < wSamp / 2; localKk++)
+                    {
+                        float magnitude = (float)localBuffer[localKk].Magnitude;
+                        Y[localKk][ii] = magnitude;
+
+                        if (magnitude > threadLocalMax)
+                        {
+                            threadLocalMax = magnitude;
+                        }
+                    }
+
+                    // Store thread-local max
+                    localMaxima.Add(threadLocalMax);
+
+                    return localBuffer;  // Return buffer for reuse
+                },
+                (localBuffer) => { }  // No final action needed
+            );
             
             // Find global maximum after parallel section
             fftMax = localMaxima.Count > 0 ? localMaxima.Max() : 0.0f;
