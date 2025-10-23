@@ -11,6 +11,7 @@ using System.Threading;
 using System.Numerics;
 using NAudio.Wave;
 using System.Xml;
+using System.Diagnostics;
 
 namespace DigitalMusicAnalysis
 {
@@ -28,19 +29,61 @@ namespace DigitalMusicAnalysis
         private enum pitchConv { C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B };
         private double bpm = 70;
 
+        // Timing variables
+        private Stopwatch totalTimer = new Stopwatch();
+        private Dictionary<string, TimeSpan> processTimings = new Dictionary<string, TimeSpan>();
+
         public MainWindow()
         {
             InitializeComponent();
+            totalTimer.Start();  // Start overall timing
+
             filename = openFile("Select Audio (wav) file");
             string xmlfile = openFile("Select Score (xml) file");
             Thread check = new Thread(new ThreadStart(updateSlider));
+
+            // Time loadWave
+            var loadWaveTimer = Stopwatch.StartNew();
             loadWave(filename);
+            loadWaveTimer.Stop();
+            processTimings["LoadWave"] = loadWaveTimer.Elapsed;
+
+            // Time freqDomain
+            var freqDomainTimer = Stopwatch.StartNew();
             freqDomain();
+            freqDomainTimer.Stop();
+            processTimings["FreqDomain"] = freqDomainTimer.Elapsed;
+
+            // Time readXML
+            var readXMLTimer = Stopwatch.StartNew();
             sheetmusic = readXML(xmlfile);
+            readXMLTimer.Stop();
+            processTimings["ReadXML"] = readXMLTimer.Elapsed;
+
+            // Time onsetDetection
+            var onsetDetectionTimer = Stopwatch.StartNew();
             onsetDetection();
+            onsetDetectionTimer.Stop();
+            processTimings["OnsetDetection"] = onsetDetectionTimer.Elapsed;
+
+            // Time loadImage
+            var loadImageTimer = Stopwatch.StartNew();
             loadImage();
+            loadImageTimer.Stop();
+            processTimings["LoadImage"] = loadImageTimer.Elapsed;
+
+            // Time loadHistogram
+            var loadHistogramTimer = Stopwatch.StartNew();
             loadHistogram();
+            loadHistogramTimer.Stop();
+            processTimings["LoadHistogram"] = loadHistogramTimer.Elapsed;
+
+            // Time playBack
+            var playBackTimer = Stopwatch.StartNew();
             playBack();
+            playBackTimer.Stop();
+            processTimings["PlayBack"] = playBackTimer.Elapsed;
+
             check.Start();
 
             button1.Click += zoomIN;
@@ -48,6 +91,56 @@ namespace DigitalMusicAnalysis
 
             slider1.ValueChanged += updateHistogram;
             playback.PlaybackStopped += closeMusic;
+
+            // Stop overall timer and show report
+            totalTimer.Stop();
+            processTimings["Total"] = totalTimer.Elapsed;
+            ShowTimingReport();
+        }
+
+        private void ShowTimingReport()
+        {
+            var report = "Performance Timing Report:\n";
+            report += "========================\n\n";
+
+            foreach (var timing in processTimings)
+            {
+                report += $"{timing.Key}: {timing.Value.TotalMilliseconds:F2} ms\n";
+            }
+
+            // Also show relative percentages
+            if (processTimings.ContainsKey("Total") && processTimings["Total"].TotalMilliseconds > 0)
+            {
+                report += "\nRelative Performance:\n";
+                report += "====================\n";
+
+                foreach (var timing in processTimings)
+                {
+                    if (timing.Key != "Total")
+                    {
+                        double percentage = (timing.Value.TotalMilliseconds / processTimings["Total"].TotalMilliseconds) * 100;
+                        report += $"{timing.Key}: {percentage:F1}%\n";
+                    }
+                }
+            }
+
+            // Save to file with timestamp
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"PerformanceReport_{timestamp}.txt";
+                string filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
+                
+                File.WriteAllText(filePath, report);
+                Console.WriteLine($"Performance report saved to: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save performance report: {ex.Message}");
+                // Fallback to console/debug output
+                System.Diagnostics.Debug.WriteLine(report);
+                Console.WriteLine(report);
+            }
         }
 
         // Loads time-freq image for tab 1
