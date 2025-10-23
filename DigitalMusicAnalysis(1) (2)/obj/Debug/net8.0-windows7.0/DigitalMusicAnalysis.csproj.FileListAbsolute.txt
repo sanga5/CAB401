@@ -1,0 +1,5 @@
+C:\Users\jacob\source\repos\sanga5\CAB401\DigitalMusicAnalysis(1) (2)\obj\Debug\net8.0-windows7.0\DigitalMusicAnalysis.csproj.AssemblyReference.cache
+C:\Users\jacob\source\repos\sanga5\CAB401\DigitalMusicAnalysis(1) (2)\obj\Debug\net8.0-windows7.0\DigitalMusicAnalysis\App.g.cs
+C:\Users\jacob\source\repos\sanga5\CAB401\DigitalMusicAnalysis(1) (2)\obj\Debug\net8.0-windows7.0\DigitalMusicAnalysis\MainWindow.g.cs
+C:\Users\jacob\source\repos\sanga5\CAB401\DigitalMusicAnalysis(1) (2)\obj\Debug\net8.0-windows7.0\DigitalMusicAnalysis_MarkupCompile.cache
+C:\Users\jacob\source\repos\sanga5\CAB401\DigitalMusicAnalysis(1) (2)\obj\Debug\net8.0-windows7.0\DigitalMusicAnalysis_MarkupCompile.lref
