@@ -13,6 +13,7 @@ using System.Numerics;
 using NAudio.Wave;
 using System.Xml;
 using System.Diagnostics;
+using MathNet.Numerics.IntegralTransforms;
 
 namespace DigitalMusicAnalysis
 {
@@ -37,10 +38,13 @@ namespace DigitalMusicAnalysis
         public MainWindow()
         {
             InitializeComponent();
-            totalTimer.Start();  // Start overall timing
 
             filename = openFile("Select Audio (wav) file");
             string xmlfile = openFile("Select Score (xml) file");
+
+            // Start overall timing after file selection
+            totalTimer.Start();
+
             Thread check = new Thread(new ThreadStart(updateSlider));
 
             // Time loadWave
@@ -79,12 +83,6 @@ namespace DigitalMusicAnalysis
             loadHistogramTimer.Stop();
             processTimings["LoadHistogram"] = loadHistogramTimer.Elapsed;
 
-            // Time playBack
-            var playBackTimer = Stopwatch.StartNew();
-            playBack();
-            playBackTimer.Stop();
-            processTimings["PlayBack"] = playBackTimer.Elapsed;
-
             check.Start();
 
             button1.Click += zoomIN;
@@ -107,22 +105,6 @@ namespace DigitalMusicAnalysis
             foreach (var timing in processTimings)
             {
                 report += $"{timing.Key}: {timing.Value.TotalMilliseconds:F2} ms\n";
-            }
-
-            // Also show relative percentages
-            if (processTimings.ContainsKey("Total") && processTimings["Total"].TotalMilliseconds > 0)
-            {
-                report += "\nRelative Performance:\n";
-                report += "====================\n";
-
-                foreach (var timing in processTimings)
-                {
-                    if (timing.Key != "Total")
-                    {
-                        double percentage = (timing.Value.TotalMilliseconds / processTimings["Total"].TotalMilliseconds) * 100;
-                        report += $"{timing.Key}: {percentage:F1}%\n";
-                    }
-                }
             }
 
             // Save to file with timestamp
@@ -367,12 +349,11 @@ namespace DigitalMusicAnalysis
             SolidColorBrush ErrorBrush = new SolidColorBrush(Colors.Red);
             SolidColorBrush whiteBrush = new SolidColorBrush(Colors.White);
 
-            var hfcTimer = Stopwatch.StartNew();
             HFC = new float[stftRep.timeFreqData[0].Length];
 
             Console.WriteLine($"Computing HFC for {stftRep.timeFreqData[0].Length} time frames");
 
-            // Parallelize HFC computation - each time frame is independent
+            // Parallelise HFC computation
             Parallel.For(0, stftRep.timeFreqData[0].Length, jj =>
             {
                 if (jj % 1000 == 0 && jj > 0)
@@ -387,20 +368,12 @@ namespace DigitalMusicAnalysis
                 }
                 HFC[jj] = localHFC; // Single assignment per thread
             });
-            hfcTimer.Stop();
-            Console.WriteLine($"HFC computation completed in {hfcTimer.ElapsedMilliseconds} ms");
-            processTimings["HFC Computation"] = hfcTimer.Elapsed;
-
-            var normTimer = Stopwatch.StartNew();
             float maxi = HFC.Max();
 
             for (int jj = 0; jj < stftRep.timeFreqData[0].Length; jj++)
             {
                 HFC[jj] = (float)Math.Pow((HFC[jj] / maxi), 2);
             }
-            normTimer.Stop();
-            Console.WriteLine($"HFC normalization completed in {normTimer.ElapsedMilliseconds} ms");
-            processTimings["HFC Normalization"] = normTimer.Elapsed;
 
             for (int jj = 0; jj < stftRep.timeFreqData[0].Length; jj++)
             {
@@ -438,19 +411,13 @@ namespace DigitalMusicAnalysis
                 lengths.Add(noteStops[ii] - noteStarts[ii]);
             }
 
-            // PARALLEL PITCH ESTIMATION - each note processed independently
+            // Parallelise pitch detection
             var pitchResults = new double[lengths.Count];
             
             Parallel.For(0, lengths.Count, mm =>
             {
                 // Thread-local variables to avoid shared state
                 int nearest = (int)Math.Pow(2, Math.Ceiling(Math.Log(lengths[mm], 2)));
-                Complex[] localTwiddles = new Complex[nearest];
-                for (int localLl = 0; localLl < nearest; localLl++)
-                {
-                    double a = 2 * pi * localLl / (double)nearest;
-                    localTwiddles[localLl] = Complex.Pow(Complex.Exp(-i), (float)a);
-                }
 
                 Complex[] localCompX = new Complex[nearest];
                 for (int kk = 0; kk < nearest; kk++)
@@ -465,7 +432,11 @@ namespace DigitalMusicAnalysis
                     }
                 }
 
-                Complex[] localY = fft(localCompX, localTwiddles);
+                // Use MathNet FFT
+                Complex[] fftInput = (Complex[])localCompX.Clone();
+                Fourier.Forward(fftInput, FourierOptions.NoScaling);
+                Complex[] localY = fftInput;
+
                 double[] localAbsY = new double[nearest];
 
                 double maximum = 0;
@@ -509,7 +480,7 @@ namespace DigitalMusicAnalysis
                 }
             });
 
-            // Copy results to pitches list in correct order
+            // Copy results to pitches list
             for (int mm = 0; mm < lengths.Count; mm++)
             {
                 pitches.Add(pitchResults[mm]);
@@ -701,7 +672,33 @@ namespace DigitalMusicAnalysis
             }
 
             onsetTimer.Stop();
-            processTimings["OnsetDetection Internal"] = onsetTimer.Elapsed;
+            processTimings["OnsetDetection"] = onsetTimer.Elapsed;
+
+            // Validation: Write key outputs to file for comparison
+            string validationFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ValidationOutput.txt");
+            using (System.IO.StreamWriter writer = new System.IO.StreamWriter(validationFile, false)) // Overwrite
+            {
+                writer.WriteLine("Validation Outputs:");
+                writer.WriteLine($"Number of Notes Detected: {pitches?.Count ?? 0}");
+                if (pitches != null && pitches.Count > 0)
+                {
+                    writer.WriteLine($"First Pitch: {pitches[0]}");
+                    writer.WriteLine($"Last Pitch: {pitches[pitches.Count - 1]}");
+                }
+                if (noteArray != null && noteArray.Length > 0)
+                {
+                    writer.WriteLine($"First Note Error: {noteArray[0].error}");
+                }
+                // Optionally, write all pitches for detailed comparison
+                if (pitches != null)
+                {
+                    writer.WriteLine("All Pitches:");
+                    for (int j = 0; j < pitches.Count; j++)
+                    {
+                        writer.WriteLine($"{j}: {pitches[j]}");
+                    }
+                }
+            }
         }
 
         private void DisplayStats(object sender, System.Windows.Input.MouseEventArgs e)
