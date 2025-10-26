@@ -12,6 +12,9 @@ namespace DigitalMusicAnalysis
         public float[][] timeFreqData;
         public int wSamp;
 
+        // Global ParallelOptions to cap thread usage
+        private ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 4 };
+
         public timefreq(float[] x, int windowSamp)
         {
             Console.WriteLine($"Starting STFT processing for {x.Length} samples with window size {windowSamp}");
@@ -62,7 +65,6 @@ namespace DigitalMusicAnalysis
 
         float[][] stft(Complex[] x, int wSamp)
         {
-            Console.WriteLine($"Computing STFT for {x.Length} samples");
             var stftTimer = Stopwatch.StartNew();
             
             int N = x.Length;
@@ -76,23 +78,15 @@ namespace DigitalMusicAnalysis
             }
             
             int windowCount = (int)(2 * Math.Floor((double)N / (double)wSamp) - 1);
-            Console.WriteLine($"Processing {windowCount} overlapping windows");
-            
-            var windowTimer = Stopwatch.StartNew();
 
             //ConcurrentBag for thread safety
             var localMaxima = new System.Collections.Concurrent.ConcurrentBag<float>();
             
-            Parallel.For(0, windowCount, 
+            Parallel.For(0, windowCount, parallelOptions,
                 () => new Complex[wSamp],  // Thread-local buffer initialization
                 (ii, state, localBuffer) =>
                 {
-                    if (ii % 100 == 0 && ii > 0)
-                    {
-                        Console.WriteLine($"Processed {ii}/{windowCount} windows ({(ii * 100.0 / windowCount):F1}%)");
-                    }
-
-                    // Copy window data to thread-local buffer
+                    // Copy window data to buffer
                     for (int j = 0; j < wSamp; j++)
                     {
                         localBuffer[j] = x[ii * (wSamp / 2) + j];
@@ -119,29 +113,21 @@ namespace DigitalMusicAnalysis
 
                     return localBuffer;  // Return buffer for reuse
                 },
-                (localBuffer) => { }  // No final action needed
+                (localBuffer) => { } 
             );
-            
+
             // Find global maximum after parallel section
             fftMax = localMaxima.Count > 0 ? localMaxima.Max() : 0.0f;
-            windowTimer.Stop();
-            Console.WriteLine($"Window processing completed in {windowTimer.ElapsedMilliseconds} ms");
-
-            var normalizationTimer = Stopwatch.StartNew();
-
+            
             // Parallelize normalization
-            Parallel.For(0, windowCount, ii =>
+            Parallel.For(0, windowCount, parallelOptions, ii =>
             {
                 for (int kk = 0; kk < wSamp / 2; kk++)
                 {
                     Y[kk][ii] /= fftMax;
                 }
             });
-            normalizationTimer.Stop();
-            Console.WriteLine($"Normalization completed in {normalizationTimer.ElapsedMilliseconds} ms");
-
             stftTimer.Stop();
-            Console.WriteLine($"Total STFT time: {stftTimer.ElapsedMilliseconds} ms");
             
             return Y;
         }

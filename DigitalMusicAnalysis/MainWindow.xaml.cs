@@ -28,8 +28,10 @@ namespace DigitalMusicAnalysis
         private Complex[]? twiddles;
         private Complex[]? compX;
         private string? filename;
-        private enum pitchConv { C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B };
         private double bpm = 70;
+
+        // Global ParallelOptions to cap thread usage across the app
+        private ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 4 };
 
         // Timing variables
         private Stopwatch totalTimer = new Stopwatch();
@@ -351,16 +353,9 @@ namespace DigitalMusicAnalysis
 
             HFC = new float[stftRep.timeFreqData[0].Length];
 
-            Console.WriteLine($"Computing HFC for {stftRep.timeFreqData[0].Length} time frames");
-
             // Parallelise HFC computation
-            Parallel.For(0, stftRep.timeFreqData[0].Length, jj =>
+            Parallel.For(0, stftRep.timeFreqData[0].Length, parallelOptions, jj =>
             {
-                if (jj % 1000 == 0 && jj > 0)
-                {
-                    Console.WriteLine($"HFC progress: {jj}/{stftRep.timeFreqData[0].Length} ({(jj * 100.0 / stftRep.timeFreqData[0].Length):F1}%)");
-                }
-
                 float localHFC = 0.0f; // Thread-local accumulator
                 for (int ii = 0; ii < stftRep.wSamp / 2; ii++)
                 {
@@ -414,7 +409,7 @@ namespace DigitalMusicAnalysis
             // Parallelise pitch detection
             var pitchResults = new double[lengths.Count];
             
-            Parallel.For(0, lengths.Count, mm =>
+            Parallel.For(0, lengths.Count, parallelOptions, mm =>
             {
                 // Thread-local variables to avoid shared state
                 int nearest = (int)Math.Pow(2, Math.Ceiling(Math.Log(lengths[mm], 2)));
@@ -673,32 +668,6 @@ namespace DigitalMusicAnalysis
 
             onsetTimer.Stop();
             processTimings["OnsetDetection"] = onsetTimer.Elapsed;
-
-            // Validation: Write key outputs to file for comparison
-            string validationFile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ValidationOutput.txt");
-            using (System.IO.StreamWriter writer = new System.IO.StreamWriter(validationFile, false)) // Overwrite
-            {
-                writer.WriteLine("Validation Outputs:");
-                writer.WriteLine($"Number of Notes Detected: {pitches?.Count ?? 0}");
-                if (pitches != null && pitches.Count > 0)
-                {
-                    writer.WriteLine($"First Pitch: {pitches[0]}");
-                    writer.WriteLine($"Last Pitch: {pitches[pitches.Count - 1]}");
-                }
-                if (noteArray != null && noteArray.Length > 0)
-                {
-                    writer.WriteLine($"First Note Error: {noteArray[0].error}");
-                }
-                // Optionally, write all pitches for detailed comparison
-                if (pitches != null)
-                {
-                    writer.WriteLine("All Pitches:");
-                    for (int j = 0; j < pitches.Count; j++)
-                    {
-                        writer.WriteLine($"{j}: {pitches[j]}");
-                    }
-                }
-            }
         }
 
         private void DisplayStats(object sender, System.Windows.Input.MouseEventArgs e)
