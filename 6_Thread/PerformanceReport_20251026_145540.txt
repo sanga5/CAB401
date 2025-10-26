@@ -1,0 +1,10 @@
+Performance Timing Report:
+========================
+
+LoadWave: 6.72 ms
+FreqDomain: 606.50 ms
+ReadXML: 2.14 ms
+OnsetDetection: 93.23 ms
+LoadImage: 4.16 ms
+LoadHistogram: 3.24 ms
+Total: 821.99 ms
