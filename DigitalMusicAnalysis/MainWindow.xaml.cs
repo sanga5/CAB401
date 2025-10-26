@@ -29,6 +29,7 @@ namespace DigitalMusicAnalysis
         private Complex[]? compX;
         private string? filename;
         private double bpm = 70;
+        private enum pitchConv { C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B };
 
         // Global ParallelOptions to cap thread usage across the app
         private ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 4 };
