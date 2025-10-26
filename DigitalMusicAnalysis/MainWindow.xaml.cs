@@ -86,6 +86,7 @@ namespace DigitalMusicAnalysis
             loadHistogramTimer.Stop();
             processTimings["LoadHistogram"] = loadHistogramTimer.Elapsed;
 
+            playBack();
             check.Start();
 
             button1.Click += zoomIN;
